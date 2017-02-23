@@ -11,11 +11,11 @@ start:
   times 8-($-$$) db 0
  
   ;	Boot Information Table
-  bi_PrimaryVolumeDescriptor  dd  0    ; LBA of the Primary Volume Descriptor
-  bi_BootFileLocation         dd  0    ; LBA of the Boot File
-  bi_BootFileLength           dd  0    ; Length of the boot file in bytes
-  bi_Checksum                 dd  0    ; 32 bit checksum
-  bi_Reserved                 times 40 db  0   ; Reserved 'for future standardization'
+  bi_PrimaryVolumeDescriptor	dd  0	; LBA of the Primary Volume Descriptor
+  bi_BootFileLocation			dd  0	; LBA of the Boot File
+  bi_BootFileLength				dd  0	; Length of the boot file in bytes
+  bi_Checksum					dd  0	; 32 bit checksum
+  bi_Reserved					times 40 db  0	; Reserved 'for future standardization'
  
 boot:
   ;	Boot code here - set segment registers etc...
@@ -72,9 +72,9 @@ lidt [IDT_null.pointer]
 lgdt [gdt.Pointer]
 
 ; Actually switch on protected mode.
-mov    eax, cr0
-or     eax, 1
-mov    cr0, eax
+mov	eax, cr0
+or	 eax, 1
+mov	cr0, eax
 mov ax, 0x10
 mov ds, ax
 mov es ,ax
@@ -100,41 +100,90 @@ begin32:
 	mov ss, ax
 	mov ds, ax
 	mov es, ax
+	
+	;Now, let's remap the interrupts coming from the PICs
+	;They conflict with the x86 processor exceptions.
+	;We'll map IRQ0-7 to 0x20-0x27, IRQ8-F to 0x28-0x2F
 
+	;Send Initialize Command 0x11 (0b00010001) to PIC0 and 1
+	mov al, 0x11
+	out 0x20, al
+	out 0xa0, al
+	
+	;ICW1, this is the base interrupt vector for each PIC
+	mov al, 0x20
+	out 0x21, al
+	mov al, 0x28
+	out 0xa1, al
+	
+	;ICW2, Set PIC0 to master, PIC1 to slave
+	mov al, 0x04
+	out 0x21, al
+	mov al, 0x02
+	out 0xa1, al
+	
+	;ICW3, Enable 8086 mode for both 8259A's
+	mov al, 0x01
+	out 0x21, al
+	out 0xa1, al
+	
+	;ICW4, the interrupt mask for each of them.
+	mov al, 0b11111101
+	out 0x21, al ;0xFC, unmask irq1	
+	mov al, 0xff
+	out 0xa1, al
+	
+	;8259A's should be initialized and ready now.
+
+	;Now, let's set up a basic IDT for real
 	;First, let's assign all other interrupts to the stub
 	mov ecx, 49
 zero_out_idt:
 	mov ebx, ecx
-    mov eax, int_stub
-    mov word [IDT+ebx*8+0],ax
-    mov word [IDT+ebx*8+2],0x08
-    mov word [IDT+ebx*8+4],0x8E00
-    shr eax,16
-    mov word [IDT+ebx*8+6],ax
-    loop zero_out_idt
+	mov eax, int_stub
+	mov word [IDT+ebx*8+0],ax
+	mov word [IDT+ebx*8+2],0x08
+	mov word [IDT+ebx*8+4],0x8E00
+	shr eax,16
+	mov word [IDT+ebx*8+6],ax
+	loop zero_out_idt
 
+	;Then, we'll assign a handler to int 33 (0x21)
+	mov eax,int_keyb
+	mov word [IDT+33*8+0],ax
+	mov word [IDT+33*8+2],0x08
+	mov word [IDT+33*8+4],0x8E00
+	shr eax,16
+	mov word [IDT+33*8+6],ax
+	
 	;Then, we'll assign a handler to int 49 (0x31)
-    mov eax,int_49_handler
-    mov word [IDT+49*8+0],ax
-    mov word [IDT+49*8+2],0x08
-    mov word [IDT+49*8+4],0x8E00
-    shr eax,16
-    mov word [IDT+49*8+6],ax
+	mov eax,int_49_handler
+	mov word [IDT+49*8+0],ax
+	mov word [IDT+49*8+2],0x08
+	mov word [IDT+49*8+4],0x8E00
+	shr eax,16
+	mov word [IDT+49*8+6],ax
 
-	;sti
-	int 0x31
+	sti
+;	int 0x31
 
 .end:
-	cli
+	;cli
 	hlt
 	jmp .end
 
 
 int_49_handler:
-    mov ax, 0x10
-    mov gs, ax
-    mov dword [gs:0xB8000],') : '
-    iret
+	mov ax, 0x10
+	mov gs, ax
+	mov dword [gs:0xB8000],') : '
+	iret
+
+int_keyb:	
+	mov ax, 0x10
+	mov gs, ax
+	mov dword [gs:0xB8000],') : '
+	iret
 
 int_stub:
 	iret
@@ -142,12 +191,12 @@ int_stub:
 	
 ; Global Descriptor Table
 gdt:
-.Null:      dq   0x0000000000000000     ;   Null
-.Code:      dq   0x00CF9A000000FFFF     ;   Kernel Code
-.Data:      dq   0x00CF92000000FFFF     ;   Kernel Data
+.Null:	  dq	0x0000000000000000	 ;	Null
+.Code:	  dq	0x00CF9A000000FFFF	 ;	Kernel Code
+.Data:	  dq	0x00CF92000000FFFF	 ;	Kernel Data
 
 ALIGN 4
-	dw 0         ; Padding to make the "address of the GDT" field aligned on a 4-byte boundary
+	dw 0		 ; Padding to make the "address of the GDT" field aligned on a 4-byte boundary
 .Pointer:
 	dw $ - gdt - 1		; 16-bit Size (Limit) of GDT.
 	dd gdt				; 32-bit Base Address of GDT. (CPU will zero extend to 64-bit)
