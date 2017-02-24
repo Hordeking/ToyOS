@@ -148,7 +148,7 @@ char* itoa(int num, char* str, uint32_t base)
     int i = 0;
     int isNegative = 0;
 
-    /* Handle 0 explicitely, otherwise empty string is printed for 0 */
+    // Handle 0 explicitely, otherwise empty string is printed for 0
     if (num == 0)
     {
         str[i++] = '0';
@@ -184,7 +184,7 @@ char* itoa(int num, char* str, uint32_t base)
     return str;
 }
 
-/* A utility function to reverse a string  */
+// A utility function to reverse a string 
 void reverse(char str[], int length)
 {
     int start = 0;
