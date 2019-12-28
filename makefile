@@ -1,5 +1,5 @@
 boot.iso: stage1.cd.bin
-	mkisofs -input-charset utf-8 -no-emul-boot -b stage1.cd.bin -boot-load-size 8 -o boot.iso stage1.cd.bin
+	mkisofs -input-charset utf-8 -no-emul-boot -b stage1.cd.bin -o boot.iso stage1.cd.bin
 
 stage1.cd.bin: stage1.cd.o testA20.o conio.o
 	ld -m elf_i386 -e start -Ttext 0x7c00 --oformat binary -o stage1.cd.bin stage1.cd.o conio.o testA20.o
