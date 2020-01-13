@@ -44,12 +44,12 @@ A20_Check:
 	je .a20_isDisabled	; If memory wrapped around, return false.
 
 .a20_isEnabled:
-;	mov ax, 1		; else return 1.
 	pop si			; Restore saved registers.
 	pop di
 	pop es
 	pop ds
 	popf
+	mov ax, 0	; Return 0 for no error
 	stc			; Set carry to return true
 	ret
 
@@ -59,6 +59,7 @@ A20_Check:
 	pop es
 	pop ds
 	popf
+	mov ax, 0xffff	; Return -1 for error.
 	clc			; Clear carry bit to return false
 	ret
 .End_A20_Check:

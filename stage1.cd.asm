@@ -1,12 +1,21 @@
-section .text
-bits 16
-;ORG 0x7C00
-
 extern A20_Check
 extern A20_Enable
+
 extern keyboard_map
 extern putc
+extern puts
+
+extern setup_serial
+extern serial_set_baudrate
+extern writeserialstring
+
 global start
+extern kernel_main
+
+section .text
+
+bits 16
+;ORG 0x7C00
 
 start:
   jmp	0x0000:boot
@@ -87,11 +96,13 @@ jmp (gdt.Code-gdt.Null):begin32
 nop
 nop
 
+; If we get here, something is very, very wrong.
 end:
 	hlt
 	jmp end
 
 
+; This is where our 32 bit code actually begins.
 bits 32
 
 begin32:
@@ -169,10 +180,40 @@ zero_out_idt:
 	sti
 ;	int 0x31
 
+;	push dword 1
+;	push dword 0
+;	push dword 8
+;	push dword 0x3f8
+;	call setup_serial
+;	add esp, 16
+
+;	push dword 9600
+;	push dword 0x3f8
+;	call serial_set_baudrate
+;	add esp, 8
+	
+;	push welcome
+;	push 0x3f8
+;	call writeserialstring
+;	add esp, 8
+
+;	push teststring
+;	call writeserialstring
+;	pop eax
+;	push prot32modegood
+;	call writeserialstring
+;	pop eax
+	
+;	push prot32modegood
+;	call puts
+;	pop eax
+
+call (gdt.Code-gdt.Null):kernel_main
+
 .end:
 	;cli
 	hlt			; Halt unless we get an interrupt.
-	jmp .end		; Rinse and Repeat
+	jmp .end	; Rinse and Repeat
 
 
 int_0x31_handler:	; This interrupt has to be called. It just puts a frowny face at 0,0
@@ -262,6 +303,7 @@ prot32modebad		db "Unable to enter 32b protected mode.", 0x0d, 0x0a, 0
 prot64modestart	db "Setting up 64b protected mode.", 0x0d, 0x0a, 0
 prot64modegood		db "Now in 64b protected mode.", 0x0d, 0x0a, 0
 prot64modebad		db "Unable to enter 64b protected mode.", 0x0d, 0x0a, 0
+teststring			db "Sending out to serial port! Built at ", __TIME__, ".", 0x0d, 0x0a, 0
 
 ;unsigned char keyboard_map[128]
 ;keyboard_map	db 0x00, 0x1b, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x30, 0x2d, 0x3d, 0x08, 0x09
