@@ -1,8 +1,14 @@
+// This is specific to a 80x25 text mode screen
+
 #include "conio.h"
 
-uint16_t * const pConsole = (uint16_t *) 0xb8000;
+static uint16_t * const pConsole = (uint16_t *) 0xb8000;
 
 volatile uint16_t cur_pos = 0;
+
+char conv_nibble(uint8_t val);
+void scroll_lines(uint32_t nLines);
+void reverse(char str[], int length);
 
 unsigned char keyboard_map[128] =
 {
@@ -48,6 +54,16 @@ unsigned char keyboard_map[128] =
 
 void putc(unsigned char ch){
 
+	if (80*25==cur_pos) {
+		scroll_lines(1);
+		cur_pos = 80*24;
+	}
+	
+	if (ch == '\t'){
+		cur_pos += 2;
+		return;
+	}
+
 	if (ch == '\r'){
 		cur_pos = 80*(short)(cur_pos/80);
 		return;
@@ -66,6 +82,22 @@ void putc(unsigned char ch){
 	return;
 }
 
+// Scroll the screen by however many lines we request.
+void scroll_lines(uint32_t nLines){
+
+	uint32_t current = 0;
+
+	// First move everything up one line
+	for ( ; current<80*24; ++current){
+		pConsole[current] = pConsole[current+80];
+	}
+	
+	for ( ; current<80*25; ++current)
+		pConsole[current] &= 0x0700;
+
+	return;
+}
+
 void puts(char * str){
 
 	while (*str){
@@ -77,8 +109,10 @@ void puts(char * str){
 
 void clrscr(void){
 
+	// Clear screen to default dark white on black
+
 	for (short i = 0; i < 80*25; ++i){
-		pConsole[i] = (short) 0x0720;
+		pConsole[i] = (short) 0x0700;
 	}
 
 	cur_pos = 0;
@@ -88,7 +122,7 @@ void clrscr(void){
 
 void clrscr_color(uint8_t fore, uint8_t back){
 
-	uint16_t clear_value = (fore << 12) | ((back&0x0F)<<8) | 0x20;
+	uint16_t clear_value = (fore << 12) | ((back&0x0F)<<8) | 0x00;
 
 	for (short i = 0; i < 80*25; ++i){
 		pConsole[i] = clear_value;
